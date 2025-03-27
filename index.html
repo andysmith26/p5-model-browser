@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P5.js Code Patterns</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        
+        .pattern-container {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .pattern-header {
+            background-color: #f7f9fc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .pattern-description {
+            padding: 15px 20px;
+            background-color: #f0f4f8;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .content-columns {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        .code-column {
+            flex: 1;
+            min-width: 400px;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            background-color: #f8f9fa;
+            overflow-x: auto;
+        }
+        
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        
+        code {
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .preview-column {
+            flex: 1;
+            min-width: 400px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .canvas-container {
+            margin-bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .questions {
+            background-color: #fff8e1;
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .questions ol {
+            margin-bottom: 0;
+        }
+        
+        .pattern-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 10px 0;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        
+        .pattern-button {
+            padding: 8px 16px;
+            background-color: #e9ecef;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .pattern-button:hover, .pattern-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .instructions {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f0f4f8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>P5.js Code Patterns - Interactive Learning</h1>
+    <p>Explore different JavaScript patterns with interactive examples. Each pattern comes with example code, a live preview, and questions to test your understanding.</p>
+    
+    <div id="pattern-navigation" class="pattern-nav">
+        <!-- Pattern buttons will be added here dynamically -->
+    </div>
+    
+    <div id="pattern-display">
+        <!-- Active pattern will be shown here -->
+    </div>
+    
+    <script>
+        // Global variables
+        let patterns = []; // Will hold all our patterns
+        let activeSketch = null; // Current active p5 instance
+        let currentPatternIndex = 0;
+        
+        // Load pattern data from JSON file
+        fetch('patterns.json')
+            .then(response => response.json())
+            .then(data => {
+                patterns = data;
+                setupNavigation();
+                loadPattern(0); // Load first pattern by default
+            })
+            .catch(error => {
+                console.error('Error loading patterns:', error);
+                document.getElementById('pattern-display').innerHTML = 
+                    `<div class="error">Error loading patterns. Check console for details.</div>`;
+            });
+        
+        // Setup navigation buttons
+        function setupNavigation() {
+            const nav = document.getElementById('pattern-navigation');
+            
+            patterns.forEach((pattern, index) => {
+                const button = document.createElement('button');
+                button.className = 'pattern-button';
+                button.textContent = `${index + 1}. ${pattern.title}`;
+                button.onclick = () => loadPattern(index);
+                nav.appendChild(button);
+            });
+        }
+        
+        // Load and display a pattern
+        function loadPattern(index) {
+            // Update active button
+            const buttons = document.querySelectorAll('.pattern-button');
+            buttons.forEach((btn, i) => {
+                btn.classList.toggle('active', i === index);
+            });
+            
+            // Get pattern data
+            const pattern = patterns[index];
+            currentPatternIndex = index;
+            
+            // Remove previous sketch if exists
+            if (activeSketch) {
+                activeSketch.remove();
+                activeSketch = null;
+            }
+            
+            // Build pattern HTML
+            const patternHTML = `
+                <div class="pattern-container">
+                    <div class="pattern-header">
+                        <h2>Pattern ${index + 1}: ${pattern.title}</h2>
+                    </div>
+                    <div class="pattern-description">
+                        <p>${pattern.description}</p>
+                    </div>
+                    <div class="content-columns">
+                        <div class="code-column">
+                            <pre><code>${escapeHtml(pattern.code)}</code></pre>
+                        </div>
+                        <div class="preview-column">
+                            <div id="canvas-container-${index}" class="canvas-container"></div>
+                            <div class="instructions">
+                                <p><b>Instructions:</b> ${pattern.instructions}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="questions">
+                        <h3>Questions:</h3>
+                        <ol>
+                            ${pattern.questions.map(q => `<li>${q}</li>`).join('')}
+                        </ol>
+                    </div>
+                </div>
+            `;
+            
+            // Update display
+            document.getElementById('pattern-display').innerHTML = patternHTML;
+            
+            // Create a new p5 instance
+            createSketch(pattern.code, index);
+        }
+        
+        // Create a new p5 instance for the pattern
+        function createSketch(code, index) {
+            // Prepare the container
+            const container = document.getElementById(`canvas-container-${index}`);
+            
+            // Extract setup, draw, and other functions from code
+            let setupFn, drawFn, mousePressedFn, keyPressedFn;
+            
+            try {
+                // Using Function constructor to evaluate the code safely
+                const sketchCode = new Function('p', `
+                    ${code}
+                    return {
+                        setup: typeof setup !== 'undefined' ? setup : null,
+                        draw: typeof draw !== 'undefined' ? draw : null,
+                        mousePressed: typeof mousePressed !== 'undefined' ? mousePressed : null,
+                        keyPressed: typeof keyPressed !== 'undefined' ? keyPressed : null
+                    };
+                `);
+                
+                // Create new p5 instance with the extracted functions
+                activeSketch = new p5(p => {
+                    const fns = sketchCode(p);
+                    
+                    p.setup = function() {
+                        // Default setup if none provided
+                        p.createCanvas(500, 400);
+                        p.background(220);
+                        
+                        // Call the sketch's setup if it exists
+                        if (fns.setup) fns.setup.call(p);
+                    };
+                    
+                    p.draw = function() {
+                        if (fns.draw) fns.draw.call(p);
+                    };
+                    
+                    p.mousePressed = function() {
+                        if (fns.mousePressed) fns.mousePressed.call(p);
+                    };
+                    
+                    p.keyPressed = function() {
+                        if (fns.keyPressed) fns.keyPressed.call(p);
+                    };
+                }, container);
+            } catch (e) {
+                console.error('Error initializing sketch:', e);
+                container.innerHTML = `<div class="error">Error initializing sketch: ${e.message}</div>`;
+            }
+        }
+        
+        // Helper function to escape HTML for code display
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
