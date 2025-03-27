@@ -220,44 +220,50 @@
         
 // Create a new p5 instance for the pattern
 function createSketch(code, index) {
-    // Prepare the container
     const container = document.getElementById(`canvas-container-${index}`);
     
-    // Create new p5 instance - MODIFIED APPROACH
-    activeSketch = new p5(function(p) {
-        // Add the sketch code to the p5 instance scope
-        // This ensures p5 functions are accessible
-        try {
-            // Wrap code in a function scope with p as argument
-            eval(`
-                (function(p) {
-                    ${code}
-                    
-                    // Override p5 functions if defined in the code
-                    if (typeof setup !== 'undefined') p.setup = setup;
-                    if (typeof draw !== 'undefined') p.draw = draw;
-                    if (typeof mousePressed !== 'undefined') p.mousePressed = mousePressed;
-                    if (typeof keyPressed !== 'undefined') p.keyPressed = keyPressed;
-                })(p);
-            `);
-            
-            // If setup wasn't defined in the code, provide a default
-            if (!p.setup) {
-                p.setup = function() {
-                    p.createCanvas(500, 400);
-                    p.background(220);
-                };
-            }
-            
-            // If draw wasn't defined, provide an empty one
-            if (!p.draw) {
-                p.draw = function() {};
-            }
-        } catch (e) {
-            console.error('Error in sketch code:', e);
-            container.innerHTML = `<div class="error">Error in sketch: ${e.message}</div>`;
+    try {
+        // Remove any previous sketch
+        if (activeSketch) {
+            activeSketch.remove();
+            activeSketch = null;
         }
-    }, container);
+        
+        // This is the key part - create a "global-mode-like" environment
+        // within the instance mode
+        activeSketch = new p5(sketch => {
+            // Expose p5 functions globally within this function
+            with (sketch) {
+                // Evaluate the code in this context
+                eval(code);
+                
+                // If the code didn't define these functions, provide defaults
+                if (typeof setup !== 'function') {
+                    sketch.setup = function() {
+                        createCanvas(500, 400);
+                        background(220);
+                    };
+                } else {
+                    sketch.setup = setup;
+                }
+                
+                if (typeof draw === 'function') {
+                    sketch.draw = draw;
+                }
+                
+                if (typeof mousePressed === 'function') {
+                    sketch.mousePressed = mousePressed;
+                }
+                
+                if (typeof keyPressed === 'function') {
+                    sketch.keyPressed = keyPressed;
+                }
+            }
+        }, container);
+    } catch (e) {
+        console.error('Error initializing sketch:', e);
+        container.innerHTML = `<div class="error">Error initializing sketch: ${e.message}</div>`;
+    }
 }
         // Helper function to escape HTML for code display
         function escapeHtml(unsafe) {
